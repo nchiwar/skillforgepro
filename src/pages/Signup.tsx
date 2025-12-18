@@ -1,0 +1,223 @@
+import { useState } from 'react';
+import { motion } from 'framer-motion';
+import { Link, useNavigate } from 'react-router-dom';
+import { Mail, Lock, User, Zap, ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+import { z } from 'zod';
+
+const signupSchema = z.object({
+  fullName: z.string().min(2, 'Name must be at least 2 characters').max(100, 'Name is too long'),
+  email: z.string().email('Please enter a valid email'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
+});
+
+export default function SignupPage() {
+  const navigate = useNavigate();
+  const { signUp } = useAuth();
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+
+    // Validate
+    const result = signupSchema.safeParse({ fullName, email, password, confirmPassword });
+    if (!result.success) {
+      const fieldErrors: Record<string, string> = {};
+      result.error.errors.forEach((err) => {
+        if (err.path[0]) {
+          fieldErrors[err.path[0] as string] = err.message;
+        }
+      });
+      setErrors(fieldErrors);
+      return;
+    }
+
+    setIsLoading(true);
+    const { error } = await signUp(email, password, fullName);
+    setIsLoading(false);
+
+    if (error) {
+      if (error.message.includes('already registered')) {
+        toast.error('This email is already registered. Please sign in instead.');
+      } else {
+        toast.error(error.message);
+      }
+      return;
+    }
+
+    toast.success('Account created successfully!');
+    navigate('/');
+  };
+
+  return (
+    <div className="min-h-screen bg-background flex">
+      {/* Left Panel - Form */}
+      <div className="flex-1 flex items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="w-full max-w-md"
+        >
+          {/* Logo */}
+          <Link to="/" className="flex items-center gap-2 mb-8">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+              <Zap className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="font-display font-bold text-xl">
+              Skill<span className="text-gradient">Forge</span> Pro
+            </span>
+          </Link>
+
+          <h1 className="font-display text-3xl font-bold mb-2">Create your account</h1>
+          <p className="text-muted-foreground mb-8">
+            Start your journey to discover your true potential
+          </p>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Full Name */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Full Name</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="John Doe"
+                  className={`w-full h-12 pl-12 pr-4 rounded-xl border-2 bg-card focus:ring-0 outline-none transition-colors ${
+                    errors.fullName ? 'border-destructive' : 'border-border focus:border-primary'
+                  }`}
+                />
+              </div>
+              {errors.fullName && (
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.fullName}
+                </p>
+              )}
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="john@example.com"
+                  className={`w-full h-12 pl-12 pr-4 rounded-xl border-2 bg-card focus:ring-0 outline-none transition-colors ${
+                    errors.email ? 'border-destructive' : 'border-border focus:border-primary'
+                  }`}
+                />
+              </div>
+              {errors.email && (
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.email}
+                </p>
+              )}
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={`w-full h-12 pl-12 pr-12 rounded-xl border-2 bg-card focus:ring-0 outline-none transition-colors ${
+                    errors.password ? 'border-destructive' : 'border-border focus:border-primary'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.password && (
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.password}
+                </p>
+              )}
+            </div>
+
+            {/* Confirm Password */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Confirm Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={`w-full h-12 pl-12 pr-4 rounded-xl border-2 bg-card focus:ring-0 outline-none transition-colors ${
+                    errors.confirmPassword ? 'border-destructive' : 'border-border focus:border-primary'
+                  }`}
+                />
+              </div>
+              {errors.confirmPassword && (
+                <p className="mt-1 text-sm text-destructive flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.confirmPassword}
+                </p>
+              )}
+            </div>
+
+            <Button variant="hero" size="lg" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Creating account...' : 'Create Account'}
+              <ArrowRight className="w-5 h-5" />
+            </Button>
+          </form>
+
+          <p className="mt-6 text-center text-muted-foreground">
+            Already have an account?{' '}
+            <Link to="/login" className="text-primary font-medium hover:underline">
+              Sign in
+            </Link>
+          </p>
+        </motion.div>
+      </div>
+
+      {/* Right Panel - Decorative */}
+      <div className="hidden lg:flex flex-1 items-center justify-center gradient-dark relative overflow-hidden">
+        <div className="absolute top-20 left-20 w-64 h-64 bg-primary/30 rounded-full blur-3xl animate-float" />
+        <div className="absolute bottom-20 right-20 w-96 h-96 bg-accent/30 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+        
+        <div className="relative z-10 text-center px-12">
+          <div className="w-24 h-24 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-8 shadow-glow">
+            <Zap className="w-12 h-12 text-primary-foreground" />
+          </div>
+          <h2 className="font-display text-4xl font-bold text-white mb-4">
+            Unlock Your Potential
+          </h2>
+          <p className="text-white/70 text-lg max-w-md">
+            Join 50,000+ users who discovered their perfect career path with AI-powered assessments
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
